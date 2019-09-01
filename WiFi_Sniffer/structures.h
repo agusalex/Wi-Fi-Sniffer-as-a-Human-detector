@@ -197,4 +197,3 @@ struct beaconinfo parse_beacon(uint8_t *frame, uint16_t framelen, signed rssi)
   memcpy(bi.bssid, frame + 10, ETH_MAC_LEN);
   return bi;
 }
-

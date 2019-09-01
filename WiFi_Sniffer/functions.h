@@ -12,8 +12,11 @@ extern "C" {
 #include <ESP8266WiFi.h>
 #include "./structures.h"
 
-#define MAX_APS_TRACKED 100
-#define MAX_CLIENTS_TRACKED 200
+#define MAX_APS_TRACKED 10
+#define MAX_CLIENTS_TRACKED 70
+#define VERBOSE true                                      //Treats every CLIENT as not KNOWN, ideal for triangulation
+#define DEVICEONLY false                                 //Only Tracks devices, ignores APs      
+           
 
 beaconinfo aps_known[MAX_APS_TRACKED];                    // Array to save MACs of known APs
 int aps_known_count = 0;                                  // Number of known APs
@@ -34,18 +37,35 @@ String formatMac1(uint8_t mac[ETH_MAC_LEN]) {
   return hi;
 }
 
+boolean exceededMaxClients(){
+  if ((unsigned int) clients_known_count >=
+      sizeof (clients_known) / sizeof (clients_known[0]) ) {
+    
+    return true;
+  }
+  return false;
+}
+boolean exceededMaxAPs(){
+    if ((unsigned int) aps_known_count >=
+        sizeof (aps_known) / sizeof (aps_known[0]) ) {
+      return true;
+    }
+  return false;
+}
 int register_beacon(beaconinfo beacon)
 {
   int known = 0;   // Clear known flag
-  for (int u = 0; u < aps_known_count; u++)
-  {
-    if (! memcmp(aps_known[u].bssid, beacon.bssid, ETH_MAC_LEN)) {
-      aps_known[u].lastDiscoveredTime = millis();
-      aps_known[u].rssi = beacon.rssi;
-      known = 1;
-      break;
-    }   // AP known => Set known flag
-  }
+ 
+    for (int u = 0; u < aps_known_count; u++)
+    {
+      if (! memcmp(aps_known[u].bssid, beacon.bssid, ETH_MAC_LEN)) {
+        aps_known[u].lastDiscoveredTime = millis();
+        aps_known[u].rssi = beacon.rssi;
+        known = 1;
+        break;
+      }   // AP known => Set known flag
+    }
+  
   if (! known && (beacon.err == 0))  // AP is NEW, copy MAC to array and return it
   {
     beacon.lastDiscoveredTime = millis();
@@ -59,8 +79,7 @@ int register_beacon(beaconinfo beacon)
 
     aps_known_count++;
 
-    if ((unsigned int) aps_known_count >=
-        sizeof (aps_known) / sizeof (aps_known[0]) ) {
+    if (exceededMaxAPs()) {
       Serial.printf("exceeded max aps_known\n");
       aps_known_count = 0;
     }
@@ -70,19 +89,21 @@ int register_beacon(beaconinfo beacon)
 
 int register_client(clientinfo &ci) {
   int known = 0;   // Clear known flag
-  for (int u = 0; u < clients_known_count; u++)
-  {
-    if (! memcmp(clients_known[u].station, ci.station, ETH_MAC_LEN)) {
-      clients_known[u].lastDiscoveredTime = millis();
-      clients_known[u].rssi = ci.rssi;
-      known = 1;
-      break;
+  if(VERBOSE==false){
+    for (int u = 0; u < clients_known_count; u++)
+    {
+      if (! memcmp(clients_known[u].station, ci.station, ETH_MAC_LEN)) {
+        clients_known[u].lastDiscoveredTime = millis();
+        clients_known[u].rssi = ci.rssi;
+        known = 1;
+        break;
+      }
     }
   }
 
   //Uncomment the line below to disable collection of probe requests from randomised MAC's
   //if (ci.channel == -2) known = 1; // This will disable collection of probe requests from randomised MAC's
-  
+
   if (! known) {
     ci.lastDiscoveredTime = millis();
     // search for Assigned AP
@@ -105,14 +126,16 @@ int register_client(clientinfo &ci) {
       clients_known_count++;
     }
 
-    if ((unsigned int) clients_known_count >=
-        sizeof (clients_known) / sizeof (clients_known[0]) ) {
+    if (exceededMaxClients()) {
       Serial.printf("exceeded max clients_known\n");
+       if(VERBOSE == false){
       clients_known_count = 0;
+       }
     }
   }
   return known;
 }
+
 
 
 String print_beacon(beaconinfo beacon)
@@ -137,7 +160,12 @@ String print_client(clientinfo ci)
   if (ci.err != 0) {
     // nothing
   } else {
+  if(ci.channel == -2) {
+        Serial.printf("RANDOM CLIENT:l ");
+          }
+    else{
     Serial.printf("CLIENT: ");
+    }
     Serial.print(formatMac1(ci.station));  //Mac of device
     Serial.printf(" ==> ");
 
@@ -160,13 +188,18 @@ String print_client(clientinfo ci)
       Serial.print(formatMac1(ci.ap));   // Mac of connected AP
       Serial.printf("  % 3d", ci.channel);  //used channel
       Serial.printf("   % 4d\r\n", ci.rssi);
-//    }
+
+
+
   }
   return hi;
 }
 
 void promisc_cb(uint8_t *buf, uint16_t len)
 {
+  if(exceededMaxAPs()||exceededMaxClients()){
+    return;
+    }
   int i = 0;
   uint16_t seq_n_new = 0;
   if (len == 12) {
@@ -174,10 +207,12 @@ void promisc_cb(uint8_t *buf, uint16_t len)
   } else if (len == 128) {
     struct sniffer_buf2 *sniffer = (struct sniffer_buf2*) buf;
     if ((sniffer->buf[0] == 0x80)) {
-      struct beaconinfo beacon = parse_beacon(sniffer->buf, 112, sniffer->rx_ctrl.rssi);
-      if (register_beacon(beacon) == 0) {
-        print_beacon(beacon);
-        nothing_new = 0;
+      if(DEVICEONLY == false){
+        struct beaconinfo beacon = parse_beacon(sniffer->buf, 112, sniffer->rx_ctrl.rssi);
+        if (register_beacon(beacon) == 0) {
+          print_beacon(beacon);
+          nothing_new = 0;
+        }
       }
     } else if ((sniffer->buf[0] == 0x40)) {
       struct clientinfo ci = parse_probe(sniffer->buf, 36, sniffer->rx_ctrl.rssi);
@@ -202,8 +237,3 @@ void promisc_cb(uint8_t *buf, uint16_t len)
     }
   }
 }
-
-
-
-
-

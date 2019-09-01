@@ -26,10 +26,10 @@
 #define disable 0
 #define enable  1
 #define SENDTIME 30000
-#define MAXDEVICES 60
-#define JBUFFER 15+ (MAXDEVICES * 40)
+#define MAXDEVICES 80
+#define JBUFFER 15+ (MAXDEVICES * 112)
 #define PURGETIME 600000
-#define MINRSSI -70
+#define MINRSSI -100
 
 // uint8_t channel = 1;
 unsigned int channel = 1;
@@ -43,8 +43,8 @@ int nbrDevices = 0;
 int usedChannels[15];
 
 #ifndef CREDENTIALS
-#define mySSID "*****"
-#define myPASSWORD "******"
+#define mySSID "SSID"
+#define myPASSWORD "password"
 #endif
 
 StaticJsonBuffer<JBUFFER>  jsonBuffer;
@@ -74,7 +74,7 @@ void loop() {
     if (nothing_new > 200) {                // monitor channel for 200 ms
       nothing_new = 0;
       channel++;
-      if (channel == 15) break;             // Only scan channels 1 to 14
+      if (channel == 15||exceededMaxAPs()||exceededMaxClients()) break;             // Only scan channels 1 to 14
       wifi_set_channel(channel);
     }
     delay(1);  // critical processing timeslice for NONOS SDK! No delay(0) yield()
@@ -92,10 +92,15 @@ void loop() {
       sendMQTT = true;
     }
   }
-  purgeDevice();
+  if(VERBOSE == false){
+    purgeDevice();
+  }
   if (sendMQTT) {
     showDevices();
     sendDevices();
+    if(VERBOSE == true){
+      cleanAll();
+    }
   }
 }
 
@@ -121,7 +126,14 @@ void connectToWiFi() {
   Serial.println(WiFi.localIP());
 }
 
+void cleanAll(){
+    memset(aps_known, 0, sizeof(aps_known));
+    memset(clients_known, 0, sizeof(clients_known));
+    clients_known_count = 0;
+    aps_known_count = 0;
+  }
 void purgeDevice() {
+  
   for (int u = 0; u < clients_known_count; u++) {
     if ((millis() - clients_known[u].lastDiscoveredTime) > PURGETIME) {
       Serial.print("purge Client" );
@@ -157,7 +169,8 @@ void showDevices() {
     Serial.print(" RSSI ");
     Serial.print(aps_known[u].rssi);
     Serial.print(" channel ");
-    Serial.println(aps_known[u].channel);
+    Serial.print(aps_known[u].channel);
+    
   }
 
   // show Clients
@@ -168,7 +181,7 @@ void showDevices() {
     Serial.print(" RSSI ");
     Serial.print(clients_known[u].rssi);
     Serial.print(" channel ");
-    Serial.println(clients_known[u].channel);
+    Serial.print(clients_known[u].channel);
   }
 }
 
@@ -190,19 +203,27 @@ void sendDevices() {
     }
     yield();
   }
-
+  
   // Purge json string
   jsonBuffer.clear();
   JsonObject& root = jsonBuffer.createObject();
   JsonArray& mac = root.createNestedArray("MAC");
-  // JsonArray& rssi = root.createNestedArray("RSSI");
-
+  JsonArray& rssi = root.createNestedArray("RSSI");
+  JsonArray& milis = root.createNestedArray("MILIS");
+  JsonArray& ch = root.createNestedArray("CH");
+  JsonArray& type = root.createNestedArray("TYPE");
+  JsonArray& ssidOrStationMac = root.createNestedArray("STATION/SSID");
   // add Beacons
   for (int u = 0; u < aps_known_count; u++) {
     deviceMac = formatMac1(aps_known[u].bssid);
     if (aps_known[u].rssi > MINRSSI) {
       mac.add(deviceMac);
-      //    rssi.add(aps_known[u].rssi);
+      rssi.add(aps_known[u].rssi);
+      milis.add(aps_known[u].lastDiscoveredTime);
+      ch.add(aps_known[u].channel);
+      type.add("B");
+      ssidOrStationMac.add(aps_known[u].ssid);
+      
     }
   }
 
@@ -211,12 +232,24 @@ void sendDevices() {
     deviceMac = formatMac1(clients_known[u].station);
     if (clients_known[u].rssi > MINRSSI) {
       mac.add(deviceMac);
-      //    rssi.add(clients_known[u].rssi);
+      rssi.add(clients_known[u].rssi);
+      milis.add(clients_known[u].lastDiscoveredTime);
+      ch.add(clients_known[u].channel);
+      if(clients_known[u].channel==-2){
+        type.add("R");
+        }
+      else{
+        type.add("C");
+        }
+      ssidOrStationMac.add(formatMac1(clients_known[u].ap));
+      
+     
     }
   }
+   Serial.printf("%4d SHOULD BE: \n",aps_known_count + clients_known_count); // show count
 
   Serial.println();
-  Serial.printf("number of devices: %02d\n", mac.size());
+  Serial.printf("Devices Above RSSI Threshold: %02d\n", mac.size());
   root.prettyPrintTo(Serial);
   root.printTo(jsonString);
   //  Serial.println((jsonString));
@@ -233,4 +266,3 @@ void sendDevices() {
   wifi_promiscuous_enable(enable);
   sendEntry = millis();
 }
-
