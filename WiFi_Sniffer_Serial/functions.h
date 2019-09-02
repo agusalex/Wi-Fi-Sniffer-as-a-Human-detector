@@ -70,17 +70,11 @@ int register_beacon(beaconinfo beacon)
   {
     beacon.lastDiscoveredTime = millis();
     memcpy(&aps_known[aps_known_count], &beacon, sizeof(beacon));
-    /*    Serial.print("Register Beacon ");
-        Serial.print(formatMac1(beacon.bssid));
-        Serial.print(" Channel ");
-        Serial.print(aps_known[aps_known_count].channel);
-        Serial.print(" RSSI ");
-        Serial.println(aps_known[aps_known_count].rssi);*/
 
     aps_known_count++;
 
     if (exceededMaxAPs()) {
-      Serial.printf("exceeded max aps_known\n");
+    //if aps reach max just overwrite them
       aps_known_count = 0;
     }
   }
@@ -115,19 +109,11 @@ int register_client(clientinfo &ci) {
     }
     if (ci.channel != 0) {
       memcpy(&clients_known[clients_known_count], &ci, sizeof(ci));
-      /*   Serial.println();
-         Serial.print("Register Client ");
-         Serial.print(formatMac1(ci.station));
-         Serial.print(" Channel ");
-         Serial.print(ci.channel);
-         Serial.print(" RSSI ");
-         Serial.println(ci.rssi);*/
-
       clients_known_count++;
     }
 
     if (exceededMaxClients()) {
-      Serial.printf("exceeded max clients_known\n");
+      //Serial.printf("exceeded max clients_known\n");
        if(VERBOSE == false){
       clients_known_count = 0;
        }
@@ -230,7 +216,6 @@ void promisc_cb(uint8_t *buf, uint16_t len)
       struct clientinfo ci = parse_data(sniffer->buf, 36, sniffer->rx_ctrl.rssi, sniffer->rx_ctrl.channel);
       if (memcmp(ci.bssid, ci.station, ETH_MAC_LEN)) {
         if (register_client(ci) == 0) {
-          print_client(ci);
           nothing_new = 0;
         }
       }
