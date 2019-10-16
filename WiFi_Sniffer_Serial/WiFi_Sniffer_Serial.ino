@@ -92,14 +92,20 @@ void cleanAll() {
   clients_known_count = 0;
 }
 void purgeDevice() {
-
+  for (int u = 0; u < clients_known_count; u++) {
+    if (clients_known[u].lastDiscoveredTime==0) {
+     // Serial.print("purge Client" );
+     // Serial.println(u);
+      for (int i = u; i < clients_known_count; i++) memcpy(&clients_known[i], &clients_known[i + 1], sizeof(clients_known[i]));
+      clients_known_count--;
+    }
+  }
   for (int u = 0; u < aps_known_count; u++) {
-    if ((millis() - aps_known[u].lastDiscoveredTime) > PURGETIME) {
-      Serial.print("purge Beacon" );
-      Serial.println(u);
+    if (aps_known[u].lastDiscoveredTime ==0) {
+   //  Serial.print("purge Beacon" );
+    //  Serial.println(u);
       for (int i = u; i < aps_known_count; i++) memcpy(&aps_known[i], &aps_known[i + 1], sizeof(aps_known[i]));
       aps_known_count--;
-      break;
     }
   }
 }
@@ -156,6 +162,7 @@ void ICACHE_RAM_ATTR sendDevices() {
       
       addDevice(formatMac1(aps_known[u].bssid),String(aps_known[u].rssi),
       String(aps_known[u].lastDiscoveredTime),String(aps_known[u].channel),"B",formatMac1(aps_known[u].ssid));
+      aps_known[u].lastDiscoveredTime=0; //marked as dirty
       toSend +=",";
 
       if((u<aps_known_count-1)&&clients_known_count==0){
@@ -173,13 +180,14 @@ void ICACHE_RAM_ATTR sendDevices() {
       if(u<clients_known_count-1){
         toSend +=",";
       }
+      clients_known[u].lastDiscoveredTime=0; //marked as dirty
   
   }
   toSend = toSend+"]$";
   Serial.print(toSend);
   Serial.println("");
 
-
-  cleanAll();
+  purgeDevice();
+  //cleanAll();
   
 }
