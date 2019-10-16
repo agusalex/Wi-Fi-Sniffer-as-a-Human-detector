@@ -16,7 +16,6 @@
 */
 
 #include <ESP8266WiFi.h>
-#include <ArduinoJson.h>
 #include <set>
 #include <string>
 #include "./functions.h"
@@ -24,40 +23,32 @@
 #define disable 0
 #define enable  1
 #define MAXDEVICES 80
-#define JBUFFER 15+ (MAXDEVICES * 112)
 #define PURGETIME 600000
 #define MINRSSI -100
 #define MIN_SEND_TIME 5*1000
 #define MAX_SEND_TIME 30*1000
 
+#define   CLEARTORECIEVEPIN 0
+#define   SETCONFIGMODEPIN 2
+
 // uint8_t channel = 1;
 unsigned int channel = 1;
-int clients_known_count_old, aps_known_count_old;
 unsigned long sendEntry, deleteEntry;
-char jsonString[JBUFFER];
-int SENDTIME = 30000;
-
-
-String device[MAXDEVICES];
 int nbrDevices = 0;
 int usedChannels[15];
-boolean sendMQTT = false;
-
-StaticJsonBuffer<JBUFFER>  jsonBuffer;
+String toSend = "";
 
 void setup() {
+  pinMode(CLEARTORECIEVEPIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(CLEARTORECIEVEPIN), sendDevices, RISING);
   Serial.begin(115200);
-  //Serial.printf("\n\nSDK version:%s\n\r", system_get_sdk_version());
-  //Serial.println(F("Human detector by Andreas Spiess. ESP8266 mini-sniff by Ray Burnette http://www.hackster.io/rayburne/projects"));
-  //Serial.println(F("Based on the work of Ray Burnette http://www.hackster.io/rayburne/projects"));
 
   wifi_set_opmode(STATION_MODE);            // Promiscuous works only with station mode
   wifi_set_channel(channel);
   wifi_promiscuous_enable(disable);
   wifi_set_promiscuous_rx_cb(promisc_cb);   // Set up promiscuous callback
   wifi_promiscuous_enable(enable);
-  randomSeed(analogRead(0));
-  SENDTIME = random(MIN_SEND_TIME, MAX_SEND_TIME);
+
 }
 
 
@@ -75,19 +66,6 @@ void loop() {
 
   }
   delay(1);  // critical processing timeslice for NONOS SDK! No delay(0) yield()
-
-  if (clients_known_count > clients_known_count_old) {
-   // Serial.println("Clients: " + clients_known_count);
-  }
-  if ((millis() - sendEntry > SENDTIME) || exceededMaxClients()) {
-    sendEntry = millis();
-    sendMQTT = true;
-  }
-  if (sendMQTT) {
-    sendDevices();
-    cleanAll();
-    SENDTIME = random(MIN_SEND_TIME, MAX_SEND_TIME); //Random Send time recalculated so that not all nodes send at the same time after power outage
-  }
 }
 
 
@@ -96,20 +74,9 @@ void cleanAll() {
   memset(aps_known, 0, sizeof(aps_known));
   memset(clients_known, 0, sizeof(clients_known));
   clients_known_count = 0;
-  clients_known_count_old = 0;
-  aps_known_count_old = 0;
 }
 void purgeDevice() {
 
-  for (int u = 0; u < clients_known_count; u++) {
-    if ((millis() - clients_known[u].lastDiscoveredTime) > PURGETIME) {
-      Serial.print("purge Client" );
-      Serial.println(u);
-      for (int i = u; i < clients_known_count; i++) memcpy(&clients_known[i], &clients_known[i + 1], sizeof(clients_known[i]));
-      clients_known_count--;
-      break;
-    }
-  }
   for (int u = 0; u < aps_known_count; u++) {
     if ((millis() - aps_known[u].lastDiscoveredTime) > PURGETIME) {
       Serial.print("purge Beacon" );
@@ -152,58 +119,43 @@ void showDevices() {
   }
 }
 
-void sendDevices() {
-  String deviceMac;
-  // Purge json string
-  jsonBuffer.clear();
-  JsonObject& root = jsonBuffer.createObject();
-  JsonArray& mac = root.createNestedArray("MAC");
-  JsonArray& rssi = root.createNestedArray("RSSI");
-  JsonArray& milis = root.createNestedArray("MILIS");
-  JsonArray& ch = root.createNestedArray("CH");
-  JsonArray& type = root.createNestedArray("TYPE");
-  JsonArray& ssidOrStationMac = root.createNestedArray("STATION/SSID");
-  // add Beacons
+  void addDevice( String mac,String rssi,String lastDiscoveredTime,String channel, String type,String ssidOrStationMac){
+    toSend +="{\"A\":\""+mac+"\","+"\"B\":\""+rssi+"\","+
+        "\"C\":\""+lastDiscoveredTime+"\","+"\"D\":\""+channel+"\",\""+
+        +"E\":\""+type+"\","+"\"F\":\""+ssidOrStationMac+"\"}";
+}
+
+
+void ICACHE_RAM_ATTR sendDevices() {
+  
+  toSend = "#[";
   for (int u = 0; u < aps_known_count; u++) {
-    deviceMac = formatMac1(aps_known[u].bssid);
-    if (aps_known[u].rssi > MINRSSI) {
-      mac.add(deviceMac);
-      rssi.add(aps_known[u].rssi);
-      milis.add(aps_known[u].lastDiscoveredTime);
-      ch.add(aps_known[u].channel);
-      type.add("B");
-      ssidOrStationMac.add(aps_known[u].ssid);
+      
+      addDevice(formatMac1(aps_known[u].bssid),String(aps_known[u].rssi),
+      String(aps_known[u].lastDiscoveredTime),String(aps_known[u].channel),"B",formatMac1(aps_known[u].ssid));
+      toSend +=",";
+
+
 
     }
-  }
+  
 
   // Add Clients
   for (int u = 0; u < clients_known_count; u++) {
-    deviceMac = formatMac1(clients_known[u].station);
-    if (clients_known[u].rssi > MINRSSI) {
-      mac.add(deviceMac);
-      rssi.add(clients_known[u].rssi);
-      milis.add(clients_known[u].lastDiscoveredTime);
-      ch.add(clients_known[u].channel);
-      if (clients_known[u].channel == -2) {
-        type.add("R");
-      }
-      else {
-        type.add("C");
-      }
-      ssidOrStationMac.add(formatMac1(clients_known[u].ap));
 
-
-    }
+       addDevice(formatMac1(clients_known[u].bssid),String(clients_known[u].rssi),
+      String(clients_known[u].lastDiscoveredTime),String(clients_known[u].channel),"C",formatMac1(clients_known[u].ap));
+      if(u<clients_known_count-1){
+        toSend +=",";
+      }
+  
   }
   //Serial.printf("%4d SHOULD BE: \n",aps_known_count + clients_known_count); // show count
-
-  Serial.print("#");
-  //Serial.printf("Devices Above RSSI Threshold: %02d\n", mac.size());
-  root.printTo(Serial);
-  Serial.print("$");
+  toSend = toSend+"]$";
+  Serial.print(toSend);
   Serial.println("");
-  delay(100);
-  sendEntry = millis();
-  sendMQTT = false;
+ // sendEntry = millis();
+  //sendMQTT = false;
+
+  cleanAll();
 }
