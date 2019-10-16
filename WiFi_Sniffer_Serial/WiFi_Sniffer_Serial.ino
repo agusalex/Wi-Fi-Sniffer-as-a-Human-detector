@@ -28,7 +28,7 @@
 #define MIN_SEND_TIME 5*1000
 #define MAX_SEND_TIME 30*1000
 
-#define   CLEARTORECIEVEPIN 0
+#define   CLEARTORECIEVEPIN 4
 #define   SETCONFIGMODEPIN 2
 
 // uint8_t channel = 1;
@@ -39,15 +39,29 @@ int usedChannels[15];
 String toSend = "";
 
 void setup() {
-  pinMode(CLEARTORECIEVEPIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(CLEARTORECIEVEPIN), sendDevices, RISING);
+ 
   Serial.begin(115200);
-
+  pinMode(2, OUTPUT);
+  digitalWrite(2, LOW);
+  delay(500);
+  digitalWrite(2, HIGH);
+  delay(500);
+  digitalWrite(2, LOW);
+  delay(500);
+  digitalWrite(2, HIGH);
+  delay(500);
+  digitalWrite(2, LOW);
+  delay(500);
+  digitalWrite(2, HIGH);
+  
   wifi_set_opmode(STATION_MODE);            // Promiscuous works only with station mode
   wifi_set_channel(channel);
   wifi_promiscuous_enable(disable);
   wifi_set_promiscuous_rx_cb(promisc_cb);   // Set up promiscuous callback
   wifi_promiscuous_enable(enable);
+  Serial.begin(115200);
+  pinMode(CLEARTORECIEVEPIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(CLEARTORECIEVEPIN), sendDevices, FALLING);
 
 }
 
@@ -63,8 +77,10 @@ void loop() {
       channel = 1;
     }
     wifi_set_channel(channel);
-
+   //digitalWrite(2, HIGH);
+    
   }
+  
   delay(1);  // critical processing timeslice for NONOS SDK! No delay(0) yield()
 }
 
@@ -119,15 +135,22 @@ void showDevices() {
   }
 }
 
-  void addDevice( String mac,String rssi,String lastDiscoveredTime,String channel, String type,String ssidOrStationMac){
-    toSend +="{\"A\":\""+mac+"\","+"\"B\":\""+rssi+"\","+
-        "\"C\":\""+lastDiscoveredTime+"\","+"\"D\":\""+channel+"\",\""+
-        +"E\":\""+type+"\","+"\"F\":\""+ssidOrStationMac+"\"}";
+void addDevice( String mac,String rssi,String lastDiscoveredTime,String channel, String type,String ssidOrStationMac){
+  toSend +="{\"A\":\""+mac+"\","+"\"B\":\""+rssi+"\","+
+      "\"C\":\""+lastDiscoveredTime+"\","+"\"D\":\""+channel+"\",\""+
+      +"E\":\""+type+"\","+"\"F\":\""+ssidOrStationMac+"\"}";
 }
 
 
 void ICACHE_RAM_ATTR sendDevices() {
-  
+  if(digitalRead(2)==LOW){
+    digitalWrite(2, HIGH);
+
+  }
+  else{
+    digitalWrite(2,LOW);
+  }
+ 
   toSend = "#[";
   for (int u = 0; u < aps_known_count; u++) {
       
@@ -158,4 +181,5 @@ void ICACHE_RAM_ATTR sendDevices() {
 
 
   cleanAll();
+  
 }
