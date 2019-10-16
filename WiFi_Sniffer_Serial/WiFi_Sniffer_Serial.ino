@@ -135,7 +135,9 @@ void ICACHE_RAM_ATTR sendDevices() {
       String(aps_known[u].lastDiscoveredTime),String(aps_known[u].channel),"B",formatMac1(aps_known[u].ssid));
       toSend +=",";
 
-
+      if((u<aps_known_count-1)&&clients_known_count==0){
+        toSend +=",";
+      }
 
     }
   
@@ -150,12 +152,10 @@ void ICACHE_RAM_ATTR sendDevices() {
       }
   
   }
-  //Serial.printf("%4d SHOULD BE: \n",aps_known_count + clients_known_count); // show count
   toSend = toSend+"]$";
   Serial.print(toSend);
   Serial.println("");
- // sendEntry = millis();
-  //sendMQTT = false;
+
 
   cleanAll();
 }
