@@ -14,12 +14,11 @@
 
   This software is based on the work of Ray Burnette: https://www.hackster.io/rayburne/esp8266-mini-sniff-f6b93a
 */
-
 #include <ESP8266WiFi.h>
+#include<ArduinoJson.h>
 #include <set>
 #include <string>
 #include "./functions.h"
-
 #define disable 0
 #define enable  1
 #define MAXDEVICES 80
@@ -27,33 +26,17 @@
 #define MINRSSI -100
 #define MIN_SEND_TIME 5*1000
 #define MAX_SEND_TIME 30*1000
-
-#define   CLEARTORECIEVEPIN 4
-#define   SETCONFIGMODEPIN 2
-
+#define CLEARTORECIEVEPIN 4
+#define SETCONFIGMODEPIN 2
+const size_t capacity = 6 * JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(9);
 // uint8_t channel = 1;
 unsigned int channel = 1;
-unsigned long sendEntry, deleteEntry;
-int nbrDevices = 0;
-int usedChannels[15];
-String toSend = "";
+unsigned long meshTime = 0;
 
 void setup() {
- 
   Serial.begin(115200);
   pinMode(2, OUTPUT);
-  digitalWrite(2, LOW);
-  delay(500);
   digitalWrite(2, HIGH);
-  delay(500);
-  digitalWrite(2, LOW);
-  delay(500);
-  digitalWrite(2, HIGH);
-  delay(500);
-  digitalWrite(2, LOW);
-  delay(500);
-  digitalWrite(2, HIGH);
-  
   wifi_set_opmode(STATION_MODE);            // Promiscuous works only with station mode
   wifi_set_channel(channel);
   wifi_promiscuous_enable(disable);
@@ -61,12 +44,13 @@ void setup() {
   wifi_promiscuous_enable(enable);
   Serial.begin(115200);
   pinMode(CLEARTORECIEVEPIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(CLEARTORECIEVEPIN), sendDevices, FALLING);
+  pinMode(SETCONFIGMODEPIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(CLEARTORECIEVEPIN),
+   sendDevices, FALLING);
+ // attachInterrupt(digitalPinToInterrupt(SETCONFIGMODEPIN),
+  // configSniffer, FALLING); 
 
 }
-
-
-
 
 void loop() {
   nothing_new++;                          // Array is not finite, check bounds and adjust if required
@@ -77,8 +61,6 @@ void loop() {
       channel = 1;
     }
     wifi_set_channel(channel);
-   //digitalWrite(2, HIGH);
-    
   }
   
   delay(1);  // critical processing timeslice for NONOS SDK! No delay(0) yield()
@@ -86,69 +68,63 @@ void loop() {
 
 
 
-void cleanAll() {
-  memset(aps_known, 0, sizeof(aps_known));
-  memset(clients_known, 0, sizeof(clients_known));
-  clients_known_count = 0;
-}
 void purgeDevice() {
   for (int u = 0; u < clients_known_count; u++) {
-    if (clients_known[u].lastDiscoveredTime==0) {
-     // Serial.print("purge Client" );
-     // Serial.println(u);
+    if (clients_known[u].lastDiscoveredTime==-1) {
       for (int i = u; i < clients_known_count; i++) memcpy(&clients_known[i], &clients_known[i + 1], sizeof(clients_known[i]));
       clients_known_count--;
     }
   }
   for (int u = 0; u < aps_known_count; u++) {
-    if (aps_known[u].lastDiscoveredTime ==0) {
-   //  Serial.print("purge Beacon" );
-    //  Serial.println(u);
+    if (aps_known[u].lastDiscoveredTime ==-1) {
       for (int i = u; i < aps_known_count; i++) memcpy(&aps_known[i], &aps_known[i + 1], sizeof(aps_known[i]));
       aps_known_count--;
     }
   }
 }
-
-
-void showDevices() {
-  Serial.println("");
-  Serial.println("");
-  Serial.println("-------------------Device DB-------------------");
-  Serial.printf("%4d Devices + Clients.\n", aps_known_count + clients_known_count); // show count
-
-  // show Beacons
-  for (int u = 0; u < aps_known_count; u++) {
-    Serial.printf( "%4d ", u); // Show beacon number
-    Serial.print("B ");
-    Serial.print(formatMac1(aps_known[u].bssid));
-    Serial.print(" RSSI ");
-    Serial.print(aps_known[u].rssi);
-    Serial.print(" channel ");
-    Serial.print(aps_known[u].channel);
-
-  }
-
-  // show Clients
-  for (int u = 0; u < clients_known_count; u++) {
-    Serial.printf("%4d ", u); // Show client number
-    Serial.print("C ");
-    Serial.print(formatMac1(clients_known[u].station));
-    Serial.print(" RSSI ");
-    Serial.print(clients_known[u].rssi);
-    Serial.print(" channel ");
-    Serial.print(clients_known[u].channel);
-  }
-}
-
+/*
 void addDevice( String mac,String rssi,String lastDiscoveredTime,String channel, String type,String ssidOrStationMac){
   toSend +="{\"A\":\""+mac+"\","+"\"B\":\""+rssi+"\","+
       "\"C\":\""+lastDiscoveredTime+"\","+"\"D\":\""+channel+"\",\""+
       +"E\":\""+type+"\","+"\"F\":\""+ssidOrStationMac+"\"}";
 }
+void cleanAll() {
+  memset(aps_known, 0, sizeof(aps_known));
+  memset(clients_known, 0, sizeof(clients_known));
+  clients_known_count = 0;
+}*/
+void ICACHE_RAM_ATTR configSniffer(){
+  String incoming = "";
+  int incomingByte = 0;
+  boolean isRecieving = false;
+
+  while (Serial.available() > 0) {
+    // read the incomzng byte:
+    incomingByte = Serial.read();
+    // say what you got:s
+    char a = (char) incomingByte;
+   // Serial.print(a);
+    if (a == '#') { //message start
+      isRecieving = true;
+      incoming = "";
+    }
+    else if (isRecieving) {
+      if (a == '$') { //message end
+        isRecieving = false;
+        DynamicJsonDocument doc(JSON_OBJECT_SIZE(1) + 10);
+        deserializeJson(doc, incoming.substring(1,incoming.length()-1));
+        meshTime = doc["MESHTIME"]; 
+        return;
+      }
+      else {
+        incoming += a;
+      }
+    }
+  }
+}
 
 
-void ICACHE_RAM_ATTR sendDevices() {
+void setLED(){
   if(digitalRead(2)==LOW){
     digitalWrite(2, HIGH);
 
@@ -156,38 +132,51 @@ void ICACHE_RAM_ATTR sendDevices() {
   else{
     digitalWrite(2,LOW);
   }
- 
-  toSend = "#[";
+
+}
+long getOffsetFromMesh(unsigned long meshTime){
+    return millis() - meshTime;
+}
+void ICACHE_RAM_ATTR sendDevices() {
+  setLED();
+  DynamicJsonDocument doc(capacity);
+  JsonArray MAC = doc.createNestedArray("MAC");
+  JsonArray RSSI = doc.createNestedArray("RSSI");
+  JsonArray MILIS = doc.createNestedArray("MILIS");
+  JsonArray CH = doc.createNestedArray("CH");
+  JsonArray TYPE = doc.createNestedArray("TYPE");
+  JsonArray STATION_SSID = doc.createNestedArray("STATION/SSID");
+  // Add Beacons
   for (int u = 0; u < aps_known_count; u++) {
       
-      addDevice(formatMac1(aps_known[u].bssid),String(aps_known[u].rssi),
-      String(aps_known[u].lastDiscoveredTime),String(aps_known[u].channel),"B",formatMac1(aps_known[u].ssid));
-      aps_known[u].lastDiscoveredTime=0; //marked as dirty
-      toSend +=",";
-
-      if((u<aps_known_count-1)&&clients_known_count==0){
-        toSend +=",";
-      }
-
+    MAC.add(formatMac1(aps_known[u].bssid));
+    RSSI.add(aps_known[u].rssi);
+    MILIS.add(aps_known[u].lastDiscoveredTime);
+    CH.add(aps_known[u].channel);
+    TYPE.add("B");
+    STATION_SSID.add(aps_known[u].ssid);
+    aps_known[u].lastDiscoveredTime=-1; //marked as dirty
+    
     }
-  
-
   // Add Clients
   for (int u = 0; u < clients_known_count; u++) {
 
-       addDevice(formatMac1(clients_known[u].bssid),String(clients_known[u].rssi),
-      String(clients_known[u].lastDiscoveredTime),String(clients_known[u].channel),"C",formatMac1(clients_known[u].ap));
-      if(u<clients_known_count-1){
-        toSend +=",";
-      }
-      clients_known[u].lastDiscoveredTime=0; //marked as dirty
+    MAC.add(formatMac1(clients_known[u].bssid));
+    RSSI.add(clients_known[u].rssi);
+    MILIS.add(clients_known[u].lastDiscoveredTime);
+    CH.add(clients_known[u].channel);
+    TYPE.add("C");
+    STATION_SSID.add(formatMac1(clients_known[u].ap));
+    clients_known[u].lastDiscoveredTime=-1; //marked as dirty
   
   }
-  toSend = toSend+"]$";
-  Serial.print(toSend);
-  Serial.println("");
+  doc["SNIFFERID"] = ESP.getChipId();
+  doc["SENDTIME"] = millis();
+  doc["SNIFFEROFFSET"] = getOffsetFromMesh(meshTime);
 
+  Serial.print("#");
+  serializeJson(doc, Serial);
+  Serial.print("$");
+  doc.clear();
   purgeDevice();
-  //cleanAll();
-  
 }
