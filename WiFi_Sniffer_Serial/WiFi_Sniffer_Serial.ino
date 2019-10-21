@@ -15,23 +15,19 @@
   This software is based on the work of Ray Burnette: https://www.hackster.io/rayburne/esp8266-mini-sniff-f6b93a
 */
 #include <ESP8266WiFi.h>
-#include<ArduinoJson.h>
+#include <ArduinoJson.h>
 #include <set>
 #include <string>
 #include "./functions.h"
 #define disable 0
 #define enable  1
-#define MAXDEVICES 80
-#define PURGETIME 600000
-#define MINRSSI -100
-#define MIN_SEND_TIME 5*1000
-#define MAX_SEND_TIME 30*1000
-#define CLEARTORECIEVEPIN 4
+#define CLEARTORECIEVEPIN 1
 #define SETCONFIGMODEPIN 2
 const size_t capacity = 6 * JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(9);
 // uint8_t channel = 1;
 unsigned int channel = 1;
 unsigned long meshTime = 0;
+boolean sending = false;
 
 void setup() {
   Serial.begin(115200);
@@ -87,12 +83,31 @@ void addDevice( String mac,String rssi,String lastDiscoveredTime,String channel,
   toSend +="{\"A\":\""+mac+"\","+"\"B\":\""+rssi+"\","+
       "\"C\":\""+lastDiscoveredTime+"\","+"\"D\":\""+channel+"\",\""+
       +"E\":\""+type+"\","+"\"F\":\""+ssidOrStationMac+"\"}";
-}
+}*/
 void cleanAll() {
   memset(aps_known, 0, sizeof(aps_known));
   memset(clients_known, 0, sizeof(clients_known));
   clients_known_count = 0;
-}*/
+  aps_known_count = 0;
+}
+
+
+
+void setLED(){
+  if(digitalRead(2)==LOW){
+    digitalWrite(2, HIGH);
+
+  }
+  else{
+    digitalWrite(2,LOW);
+  }
+
+}
+long getOffsetFromMesh(unsigned long meshTime){
+    return millis() - meshTime;
+}
+
+
 void ICACHE_RAM_ATTR configSniffer(){
   String incoming = "";
   int incomingByte = 0;
@@ -123,29 +138,23 @@ void ICACHE_RAM_ATTR configSniffer(){
   }
 }
 
-
-void setLED(){
-  if(digitalRead(2)==LOW){
-    digitalWrite(2, HIGH);
-
-  }
-  else{
-    digitalWrite(2,LOW);
-  }
-
-}
-long getOffsetFromMesh(unsigned long meshTime){
-    return millis() - meshTime;
-}
 void ICACHE_RAM_ATTR sendDevices() {
+  if(aps_known_count+clients_known_count==0||sending){
+    return;
+  }
+  sending = true;
+
   setLED();
   DynamicJsonDocument doc(capacity);
+  doc["ID"] = ESP.getChipId();
+  doc["MILIS"] = millis();
+  doc["OFFSET"] = getOffsetFromMesh(meshTime);
   JsonArray MAC = doc.createNestedArray("MAC");
   JsonArray RSSI = doc.createNestedArray("RSSI");
   JsonArray MILIS = doc.createNestedArray("MILIS");
   JsonArray CH = doc.createNestedArray("CH");
   JsonArray TYPE = doc.createNestedArray("TYPE");
-  JsonArray STATION_SSID = doc.createNestedArray("STATION/SSID");
+  JsonArray STATION_SSID = doc.createNestedArray("STA/SSID");
   // Add Beacons
   for (int u = 0; u < aps_known_count; u++) {
       
@@ -170,13 +179,12 @@ void ICACHE_RAM_ATTR sendDevices() {
     clients_known[u].lastDiscoveredTime=-1; //marked as dirty
   
   }
-  doc["SNIFFERID"] = ESP.getChipId();
-  doc["SENDTIME"] = millis();
-  doc["SNIFFEROFFSET"] = getOffsetFromMesh(meshTime);
+
 
   Serial.print("#");
   serializeJson(doc, Serial);
   Serial.print("$");
   doc.clear();
-  purgeDevice();
+  cleanAll();
+  sending = false;
 }
