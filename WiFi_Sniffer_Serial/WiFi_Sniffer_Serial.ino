@@ -21,13 +21,16 @@
 #include "./functions.h"
 #define disable 0
 #define enable  1
-#define CLEARTORECIEVEPIN 1
-#define SETCONFIGMODEPIN 2
+#define CLEARTORECIEVEPIN D1 //NODEMCU
+#define SETCONFIGMODEPIN D2
+//#define CLEARTORECIEVEPIN D0  //D1_MINI
+//#define SETCONFIGMODEPIN D4
 const size_t capacity = 6 * JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(9);
-// uint8_t channel = 1;
 unsigned int channel = 1;
-unsigned long meshTime = 0;
+unsigned long meshOffset = 0;
 boolean sending = false;
+boolean configSnifferFlag = false;
+boolean channelChangedFlag = false;
 
 void setup() {
   Serial.begin(115200);
@@ -43,13 +46,18 @@ void setup() {
   pinMode(SETCONFIGMODEPIN, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(CLEARTORECIEVEPIN),
    sendDevices, FALLING);
- // attachInterrupt(digitalPinToInterrupt(SETCONFIGMODEPIN),
-  // configSniffer, FALLING); 
+  attachInterrupt(digitalPinToInterrupt(SETCONFIGMODEPIN),
+   configSniffer, FALLING); 
 
 }
 
 void loop() {
-  nothing_new++;                          // Array is not finite, check bounds and adjust if required
+  if(channelChangedFlag){
+    wifi_set_channel(channel);
+    channelChangedFlag = false;
+  }
+
+ /* nothing_new++;                          // Array is not finite, check bounds and adjust if required
   if (nothing_new > 200) {                // monitor channel for 200 ms
     nothing_new = 0;
     channel++;
@@ -58,7 +66,9 @@ void loop() {
     }
     wifi_set_channel(channel);
   }
-  
+  */
+
+
   delay(1);  // critical processing timeslice for NONOS SDK! No delay(0) yield()
 }
 
@@ -93,27 +103,32 @@ void cleanAll() {
 
 
 
-void setLED(){
-  if(digitalRead(2)==LOW){
-    digitalWrite(2, HIGH);
+void toggleLED(){
+  if(digitalRead(LED_BUILTIN)==LOW){
+    digitalWrite(LED_BUILTIN, HIGH);
 
   }
   else{
-    digitalWrite(2,LOW);
+    digitalWrite(LED_BUILTIN,LOW);
   }
 
 }
-long getOffsetFromMesh(unsigned long meshTime){
-    return millis() - meshTime;
+long getOffsetFromMesh(unsigned long meshOffset){
+    return millis() - meshOffset;
 }
 
 
 void ICACHE_RAM_ATTR configSniffer(){
+  if(configSnifferFlag){
+    return;
+  }
+  configSnifferFlag = true; //To make sure it can only be called once a at the same time
+  boolean isRecieving = false;
   String incoming = "";
   int incomingByte = 0;
-  boolean isRecieving = false;
-
+  delayMicroseconds(20000);
   while (Serial.available() > 0) {
+   toggleLED();
     // read the incomzng byte:
     incomingByte = Serial.read();
     // say what you got:s
@@ -126,29 +141,36 @@ void ICACHE_RAM_ATTR configSniffer(){
     else if (isRecieving) {
       if (a == '$') { //message end
         isRecieving = false;
-        DynamicJsonDocument doc(JSON_OBJECT_SIZE(1) + 10);
+        Serial.println("Recieved: "+ incoming);
+        DynamicJsonDocument doc(JSON_OBJECT_SIZE(2) + 20);
         deserializeJson(doc, incoming.substring(1,incoming.length()-1));
-        meshTime = doc["MESHTIME"]; 
-        return;
+        if(channel!=doc["CHANNEL"]){
+          channelChangedFlag = true;
+          channel = doc["CHANNEL"];
+
+        }
+        long MESHTIME = doc["MESHTIME"]; 
+        meshOffset = getOffsetFromMesh(MESHTIME);
       }
       else {
         incoming += a;
       }
     }
   }
+  configSnifferFlag = false;
 }
 
 void ICACHE_RAM_ATTR sendDevices() {
   if(aps_known_count+clients_known_count==0||sending){
     return;
   }
-  sending = true;
-
-  setLED();
+  sending = true; //To make sure it can only be called once a at the same time
+  
+  toggleLED();
   DynamicJsonDocument doc(capacity);
   doc["ID"] = ESP.getChipId();
   doc["MILIS"] = millis();
-  doc["OFFSET"] = getOffsetFromMesh(meshTime);
+  doc["OFFSET"] = meshOffset;
   JsonArray MAC = doc.createNestedArray("MAC");
   JsonArray RSSI = doc.createNestedArray("RSSI");
   JsonArray MILIS = doc.createNestedArray("MILIS");
@@ -164,7 +186,7 @@ void ICACHE_RAM_ATTR sendDevices() {
     CH.add(aps_known[u].channel);
     TYPE.add("B");
     STATION_SSID.add(aps_known[u].ssid);
-    aps_known[u].lastDiscoveredTime=-1; //marked as dirty
+    //aps_known[u].lastDiscoveredTime=-1; //marked as dirty
     
     }
   // Add Clients
@@ -176,14 +198,14 @@ void ICACHE_RAM_ATTR sendDevices() {
     CH.add(clients_known[u].channel);
     TYPE.add("C");
     STATION_SSID.add(formatMac1(clients_known[u].ap));
-    clients_known[u].lastDiscoveredTime=-1; //marked as dirty
+   // clients_known[u].lastDiscoveredTime=-1; //marked as dirty
   
   }
 
 
   Serial.print("#");
   serializeJson(doc, Serial);
-  Serial.print("$");
+  Serial.println("$");
   doc.clear();
   cleanAll();
   sending = false;
