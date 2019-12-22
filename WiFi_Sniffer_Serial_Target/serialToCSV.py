@@ -1,33 +1,33 @@
-import csv
-import serial
 
-# Open com port
-ser = serial.Serial('/dev/ttyUSB0', 115200)
+import serial  # pip install pyserial
+import threading
+import Listener
+import time
 
-with open("datafile.csv", "w") as new_file:
-    csv_writer = csv.writer(new_file)
+from datetime import datetime
 
-    line_count = 0
-    while True:
-        # Strip whitespace on the left and right side
-        # of the line
-        line = ser.readline().strip()
+threads = []
+port_amount = input("Please Insert the amount of Serial ports to listen to:")
+sample_size = input("Please Insert the sample size per each step:")
+now = datetime.now()
+dt_string = now.strftime("%d_%m_%Y_%H_%M_%S")
 
-        # Check whether line starts with a B and ends
-        # with an E, and ignore it otherwise
-        is_valid = line.startswith(b'B') and line.endswith(b'E')
-        if not is_valid:
-            print("Ignored invalid line: " + line)
-            continue
-        stripedLine = line[1:-1]
-        xy_string_duplet = stripedLine.split(b",")
-        if len(xy_string_duplet) != 2:
-            print("Ignored invalid line: " + xy_string_duplet)
-            continue
+for i in range(port_amount):
+    port = input("Insert port n° " + str(i + 1) + "full path (eg:/dev/ttyUSB0 or COM4):")
+    serial_i = serial.Serial(port, 115200)
+    listener = Listener("capture_" + port + dt_string, serial_i, sample_size)
+
+    thread_i = threads.append(
+        threading.Thread(target=listener.run))
+    thread_i.run()
 
 
-        # Convert the numbers from string format to integer
-        x = xy_string_duplet[0].decode("utf-8") 
-        y = xy_string_duplet[1].decode("utf-8") 
-        # Write XYZ to the CSV file
-        csv_writer.writerow([x,y])
+def all_dead():
+    dead = False
+    for item in threads:
+        dead = dead | item.is_alive()
+    return dead
+
+
+while not all_dead():
+    print()
