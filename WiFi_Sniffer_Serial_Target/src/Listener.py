@@ -9,16 +9,18 @@ class myListener:
     captured = 0
     pbar = None
 
-    def __init__(self, filename, ser, sample):
+    def __init__(self, i, filename, ser, sample):
         self.filename = filename
         self.ser = ser
         self.sample_size = sample
+        self.i = i
 
     def get_percent_complete(self):
         return (self.sample_size / self.captured) * 100
 
     def run(self):
-        self.pbar = tqdm(total=self.sample_size, unit="recieved")
+        self.pbar = tqdm(total=self.sample_size, leave=False, position=self.i, unit="recieved")
+        self.pbar.set_description(str(self.ser.port))
         with open(self.filename, "w") as new_file:
             csv_writer = csv.writer(new_file)
 
@@ -32,7 +34,7 @@ class myListener:
                 # with an E, and ignore it otherwise
                 is_valid = line.startswith(b'B') and line.endswith(b'E')
                 if not is_valid:
-                    print("Ignored invalid line: " + line)
+                    print("Ignored invalid line: " + str(line))
                     continue
                 stripedLine = line[1:-1]
                 xy_string_duplet = stripedLine.split(b",")
@@ -46,5 +48,5 @@ class myListener:
                 # Write XYZ to the CSV file
                 csv_writer.writerow([x, y])
                 self.captured += 1
-                self.pbar.update(10)
+                self.pbar.update(1)
         self.pbar.close()
