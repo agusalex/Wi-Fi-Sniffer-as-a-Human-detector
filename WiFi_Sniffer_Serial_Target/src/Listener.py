@@ -1,22 +1,32 @@
 from tqdm import tqdm
 import csv
+from serial import Serial
+import threading
 
 
-class myListener:
+class Listener:
     filename = ""
     ser = None
     sample_size = 0
     captured = 0
     pbar = None
 
-    def __init__(self, i, filename, ser, sample):
+    def __init__(self, i: int, filename: str, ser: Serial, sample: int):
         self.filename = filename
         self.ser = ser
         self.sample_size = sample
         self.i = i
+        self.thread = None
 
     def get_percent_complete(self):
         return (self.sample_size / self.captured) * 100
+
+    def start(self):
+        self.thread = threading.Thread(target=self.run)
+        self.thread.start()
+
+    def stop(self):
+        self.thread.join()
 
     def run(self):
         self.pbar = tqdm(total=self.sample_size, leave=False, position=self.i, unit="recieved")
@@ -34,12 +44,12 @@ class myListener:
                 # with an E, and ignore it otherwise
                 is_valid = line.startswith(b'B') and line.endswith(b'E')
                 if not is_valid:
-                    print("Ignored invalid line: " + str(line))
+                   # print("Ignored invalid line: " + str(line))
                     continue
                 stripedLine = line[1:-1]
                 xy_string_duplet = stripedLine.split(b",")
                 if len(xy_string_duplet) != 2:
-                    print("Ignored invalid line: " + xy_string_duplet)
+                    # print("Ignored invalid line: " + str(xy_string_duplet))
                     continue
 
                 # Convert the numbers from string format to integer
