@@ -208,7 +208,7 @@ void promisc_cb(uint8_t *buf, uint16_t len)
     if ((sniffer->buf[0] == 0x80)) {
       struct beaconinfo beacon = parse_beacon(sniffer->buf, 112, sniffer->rx_ctrl.rssi);
         if(isTargetMac(beacon.bssid)){   
-          Serial.println("B"+String(beacon.rssi)+",BE");
+          Serial.println("B"+String(beacon.rssi)+","+formatMac1(beacon.bssid)+"E");
         }
     } 
 
@@ -218,7 +218,7 @@ void promisc_cb(uint8_t *buf, uint16_t len)
       struct clientinfo ci = parse_probe(sniffer->buf, 36, sniffer->rx_ctrl.rssi);
       //if (memcmp(ci.bssid, ci.station, ETH_MAC_LEN)) {
         if(isTargetMac(ci.station)){   
-          Serial.println("B"+String(ci.rssi)+",PE");
+          Serial.println("B"+String(ci.rssi)+","+formatMac1(ci.station)+"E");
         }
       //}
     }
@@ -229,7 +229,7 @@ void promisc_cb(uint8_t *buf, uint16_t len)
     if ((sniffer->buf[0] == 0x08) || (sniffer->buf[0] == 0x88)) {
       struct clientinfo ci = parse_data(sniffer->buf, 36, sniffer->rx_ctrl.rssi, sniffer->rx_ctrl.channel);
         if(isTargetMac(ci.station)){   
-          Serial.println("B"+String(ci.rssi+",QE"));
+          Serial.println("B"+String(ci.rssi)+","+formatMac1(ci.station)+"E");
         }
     }
     
