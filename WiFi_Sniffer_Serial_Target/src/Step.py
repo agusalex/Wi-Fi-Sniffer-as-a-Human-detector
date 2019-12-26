@@ -1,28 +1,75 @@
 from src.Listener import Listener
+import csv, operator
+import time
 
 
 class Step:
 
-    def __init__(self, u_name_step, sample_size=100, device_list=None):
+    def __init__(self, i, value, u_name_step, sample_size=100, device_list=None):
         self.device_list = device_list
         self.sample_size = sample_size
         self.listener_list = []
-        self.u_name_step = u_name_step
+        self.value = value
+        self.u_name_step = "../" + self.value + "_" + u_name_step + ".step"
+        self.i = i
+
         self.create_listeners()
-        self.listener_threads = []
+        self.stop = False
 
     def create_listeners(self):
         for i in range(len(self.device_list)):
-            name_i = self.u_name_step + str(self.device_list[i].port)
+            name_i = self.u_name_step[3:len(self.u_name_step)-5] + str(self.device_list[i].port)
             name_i = name_i.replace("/", "_")
             self.listener_list.append(
-                Listener(i, name_i, self.device_list[i].serial, self.sample_size)
+                Listener(i + 1, name_i, self.device_list[i].serial, self.sample_size)
             )
 
     def start(self):
         for listener in self.listener_list:
             listener.start()
+        while self.some_alive():
+            time.sleep(1)
+        for listener in self.listener_list:
+            if listener.is_alive():
+                listener.stop()
+        self.merge()
+        self.stop = True
+
+    def some_alive(self):
+        alive = False
+        for listener in self.listener_list:
+            alive = alive or listener.is_alive()
+        return alive
+
+    def all_alive(self):
+        alive = True
+        for listener in self.listener_list:
+            alive = alive and listener.is_alive()
+        return alive
 
     def stop(self):
         for listener in self.listener_list:
             listener.stop()
+        self.stop = True
+
+    def export(self):
+        self.merge()
+
+    def merge(self):
+        with open(self.u_name_step, 'w', newline='') as step_file:
+            step_writer = csv.writer(step_file)
+            temp_list = []
+            for listener in self.listener_list:
+                with open(listener.filename) as listener_file:
+                    read_csv = csv.reader(listener_file, delimiter=',')
+                    for row in read_csv:
+                        temp_list.append(row)
+            sorted_list = sorted(temp_list, key=operator.itemgetter(3))
+            for row in sorted_list:
+                u = self.i
+                v = self.value
+                w = row[0]
+                x = row[1]
+                y = row[2]
+                z = row[3]
+                step_writer.writerow([u, v, w, x, y, z])

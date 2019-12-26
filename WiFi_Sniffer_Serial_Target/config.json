@@ -1,0 +1,9 @@
+{
+  "name": "test_capture",
+  "baudrate": 9600,
+  "sample_size": 1000,
+  "device_list": [
+    {"port": "/dev/ttyUSB0"},
+    {"port": "/dev/ttyUSB1"}
+  ]
+}

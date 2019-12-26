@@ -41,35 +41,20 @@ unsigned long lastDebounceTime = 0;  // the last time the output pin was toggled
 unsigned long debounceDelay = 50;    // the debounce time; increase if the output flickers
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   pinMode(2, OUTPUT);
   digitalWrite(2, HIGH);
   pinMode(D2,INPUT_PULLUP);
   wifi_set_opmode(STATION_MODE);            // Promiscuous works only with station mode
-  wifi_set_channel(channel);
+  wifi_set_channel(2);
   wifi_promiscuous_enable(disable);
   wifi_set_promiscuous_rx_cb(promisc_cb);   // Set up promiscuous callback
   wifi_promiscuous_enable(enable);
-  Serial.begin(115200);
-  pinMode(CLEARTORECIEVEPIN, INPUT_PULLUP);
-  pinMode(SETCONFIGMODEPIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(CLEARTORECIEVEPIN),
-   sendDevices, FALLING);
-  attachInterrupt(digitalPinToInterrupt(SETCONFIGMODEPIN),
-   configSniffer, FALLING); 
+  
 
 }
 
 void loop() {
-  if(channelChangedFlag){
-    wifi_set_channel(channel);
-    channelChangedFlag = false;
-  }
-  if(toSend){
-    sendDevices();
-    toSend=false;
-  }
-  button();
  /* nothing_new++;                          // Array is not finite, check bounds and adjust if required
   if (nothing_new > 200) {                // monitor channel for 200 ms
     nothing_new = 0;
