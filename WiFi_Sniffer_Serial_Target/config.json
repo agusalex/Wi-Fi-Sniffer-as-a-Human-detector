@@ -6,6 +6,7 @@
   "device_list": [
     {"port": "/dev/ttyUSB0"},
     {"port": "/dev/ttyUSB1"},
-    {"port": "/dev/ttyUSB2"}
+    {"port": "/dev/ttyUSB2"},
+    {"port": "/dev/ttyUSB3"}
   ]
 }
