@@ -11,11 +11,12 @@ def create_capture_from_json():
         name = config['name']
         baudrate = config['baudrate']
         sample_size = config['sample_size']
+        csv_values = config['csv_values']
         device_list = []
         for device in config['device_list']:
             device_list.append(Device(device['port'], baudrate))
 
-    return Capture(name, int(sample_size), device_list)
+    return Capture(name, int(sample_size), int(csv_values), device_list)
 
 
 def wizard():
@@ -55,8 +56,3 @@ if __name__ == '__main__':
     else:
         capture = wizard()
     capture.start()
-
-
-
-
-

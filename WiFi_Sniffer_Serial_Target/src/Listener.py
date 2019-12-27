@@ -13,10 +13,11 @@ class Listener:
     pbar = None
     stop = False
 
-    def __init__(self, i: int, filename: str, ser: Serial, sample: int):
+    def __init__(self, i: int, filename: str, ser: Serial, sample: int, csv_values: int):
         self.filename = "../" + filename + ".listener"
         self.ser = ser
         self.sample_size = sample
+        self.csv_values = csv_values
         self.i = i
         self.thread = None
 
@@ -43,7 +44,7 @@ class Listener:
             csv_writer = csv.writer(new_file)
 
             line_count = 0
-            while (self.captured < self.sample_size) :
+            while (self.captured < self.sample_size):
                 # Strip whitespace on the left and right side
                 # of the line
                 line = self.ser.readline().strip()
@@ -55,18 +56,17 @@ class Listener:
                     # print("Ignored invalid line: " + str(line))
                     continue
                 striped_line = line[1:-1]
-                xy_string_duplet = striped_line.split(b",")
-                if len(xy_string_duplet) != 2:
-                    # print("Ignored invalid line: " + str(xy_string_duplet))
+                string_nplet = striped_line.split(b",")
+                if len(string_nplet) != self.csv_values:
+                    # print("Ignored invalid line: " + str(string_nplet))
                     continue
 
-                # Convert the numbers from string format to integer
-                w = self.ser.port
-                x = xy_string_duplet[0].decode("utf-8")
-                y = xy_string_duplet[1].decode("utf-8")
-                z = time.time()
-                # Write XYZ to the CSV file
-                csv_writer.writerow([w, x, y, z])
+                # Write row to the CSV file
+                row = [self.ser.port, time.time()]
+                for i in range(self.csv_values):
+                    row.append(string_nplet[i].decode("utf-8"))
+
+                csv_writer.writerow(row)
                 self.captured += 1
                 self.pbar.update(1)
         self.pbar.close()

@@ -27,7 +27,9 @@
 #define CLEARTORECIEVEPIN D0  //D1_MINI
 #define SETCONFIGMODEPIN D4
 const size_t capacity = 6 * JSON_ARRAY_SIZE(2) + JSON_OBJECT_SIZE(9);
-unsigned int channel = 13;
+
+unsigned int channel = 11;
+
 unsigned long meshOffset = 0;
 boolean sending = false;
 boolean configSnifferFlag = false;
@@ -41,12 +43,12 @@ unsigned long lastDebounceTime = 0;  // the last time the output pin was toggled
 unsigned long debounceDelay = 50;    // the debounce time; increase if the output flickers
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   pinMode(2, OUTPUT);
   digitalWrite(2, HIGH);
   pinMode(D2,INPUT_PULLUP);
   wifi_set_opmode(STATION_MODE);            // Promiscuous works only with station mode
-  wifi_set_channel(2);
+  wifi_set_channel(channel);
   wifi_promiscuous_enable(disable);
   wifi_set_promiscuous_rx_cb(promisc_cb);   // Set up promiscuous callback
   wifi_promiscuous_enable(enable);

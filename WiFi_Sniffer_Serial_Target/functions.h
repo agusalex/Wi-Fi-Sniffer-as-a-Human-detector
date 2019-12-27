@@ -189,6 +189,9 @@ String print_client(clientinfo ci)
   return hi;
 }
 
+boolean matchAnyMac(uint8_t mac[ETH_MAC_LEN]){
+  return true;
+}
 boolean isTargetMac(uint8_t mac[ETH_MAC_LEN]){
   String macS = formatMac1(mac);
   if(macS==TARGETMAC){
@@ -207,8 +210,8 @@ void promisc_cb(uint8_t *buf, uint16_t len)
    
     if ((sniffer->buf[0] == 0x80)) {
       struct beaconinfo beacon = parse_beacon(sniffer->buf, 112, sniffer->rx_ctrl.rssi);
-        if(isTargetMac(beacon.bssid)){   
-          Serial.println("B"+String(beacon.rssi)+","+formatMac1(beacon.bssid)+"E");
+        if(matchAnyMac(beacon.bssid)){   
+          Serial.println("B"+String(beacon.rssi)+","+formatMac1(beacon.bssid)+",BE");
         }
     } 
 
@@ -217,8 +220,8 @@ void promisc_cb(uint8_t *buf, uint16_t len)
   else if ((sniffer->buf[0] == 0x40)) {
       struct clientinfo ci = parse_probe(sniffer->buf, 36, sniffer->rx_ctrl.rssi);
       //if (memcmp(ci.bssid, ci.station, ETH_MAC_LEN)) {
-        if(isTargetMac(ci.station)){   
-          Serial.println("B"+String(ci.rssi)+","+formatMac1(ci.station)+"E");
+        if(matchAnyMac(ci.station)){   
+          Serial.println("B"+String(ci.rssi)+","+formatMac1(ci.station)+",PE");
         }
       //}
     }
@@ -228,8 +231,8 @@ void promisc_cb(uint8_t *buf, uint16_t len)
     //Is data or QOS?
     if ((sniffer->buf[0] == 0x08) || (sniffer->buf[0] == 0x88)) {
       struct clientinfo ci = parse_data(sniffer->buf, 36, sniffer->rx_ctrl.rssi, sniffer->rx_ctrl.channel);
-        if(isTargetMac(ci.station)){   
-          Serial.println("B"+String(ci.rssi)+","+formatMac1(ci.station)+"E");
+        if(matchAnyMac(ci.station)){   
+          Serial.println("B"+String(ci.rssi)+","+formatMac1(ci.station)+",QE");
         }
     }
     

@@ -4,3 +4,13 @@ WiFi_Sniffer_Serial/.vscode/
 WiFi_Sniffer_Serial_Target/.idea/
 
 WiFi_Sniffer_Serial_Target/test
+
+WiFi_Sniffer_Serial_Target/WiFi_Sniffer_Serial_Target.esp8266.esp8266.d1_mini.bin
+
+WiFi_Sniffer_Serial_Target/WiFi_Sniffer_Serial_Target.esp8266.esp8266.d1_mini.elf
+
+WiFi_Sniffer_Serial_Target/WiFi_Sniffer_Serial_Target.ino.esp8266.esp8266.d1_mini.bin
+
+WiFi_Sniffer_Serial_Target/WiFi_Sniffer_Serial_Target.ino.esp8266.esp8266.d1_mini.elf
+
+*.csv

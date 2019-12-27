@@ -5,9 +5,10 @@ import time
 
 class Step:
 
-    def __init__(self, i, value, u_name_step, sample_size=100, device_list=None):
+    def __init__(self, i, value, u_name_step, sample_size=100, csv_values=2, device_list=None):
         self.device_list = device_list
         self.sample_size = sample_size
+        self.csv_values = csv_values
         self.listener_list = []
         self.value = value
         self.u_name_step = "../" + self.value + "_" + u_name_step + ".step"
@@ -18,10 +19,10 @@ class Step:
 
     def create_listeners(self):
         for i in range(len(self.device_list)):
-            name_i = self.u_name_step[3:len(self.u_name_step)-5] + str(self.device_list[i].port)
+            name_i = self.u_name_step[3:len(self.u_name_step) - 5] + str(self.device_list[i].port)
             name_i = name_i.replace("/", "_")
             self.listener_list.append(
-                Listener(i + 1, name_i, self.device_list[i].serial, self.sample_size)
+                Listener(i + 1, name_i, self.device_list[i].serial, self.sample_size, self.csv_values)
             )
 
     def start(self):
@@ -65,11 +66,9 @@ class Step:
                     for row in read_csv:
                         temp_list.append(row)
             sorted_list = sorted(temp_list, key=operator.itemgetter(3))
+
             for row in sorted_list:
-                u = self.i
-                v = self.value
-                w = row[0]
-                x = row[1]
-                y = row[2]
-                z = row[3]
-                step_writer.writerow([u, v, w, x, y, z])
+                row2 = [self.i, self.value]
+                for i in range(self.csv_values+2):
+                    row2.append(row[i])
+                step_writer.writerow(row2)

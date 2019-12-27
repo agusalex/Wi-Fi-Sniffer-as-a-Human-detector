@@ -1,9 +1,11 @@
 {
   "name": "test_capture",
-  "baudrate": 9600,
+  "baudrate": 115200,
   "sample_size": 1000,
+  "csv_values": 3,
   "device_list": [
     {"port": "/dev/ttyUSB0"},
-    {"port": "/dev/ttyUSB1"}
+    {"port": "/dev/ttyUSB1"},
+    {"port": "/dev/ttyUSB2"}
   ]
 }
