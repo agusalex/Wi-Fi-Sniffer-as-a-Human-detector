@@ -29,6 +29,9 @@ def wizard():
         port_amount = 1
     baudrate = input("Please Insert the baudrate of Serial ports to listen to (9600):")
     sample_size = input("Please Insert the sample size per each step (100):")
+    csv_values = input("Please Insert CSV value amount (default 2):")
+    if csv_values == "":
+        csv_values = 2
     if sample_size == "":
         sample_size = 100
     device_list = []
@@ -45,7 +48,7 @@ def wizard():
             device_list.append(Device(port))
         else:
             device_list.append(Device(port, int(baudrate)))
-    return Capture(name, int(sample_size), device_list)
+    return Capture(name, int(sample_size), int(csv_values), device_list)
 
 
 if __name__ == '__main__':
