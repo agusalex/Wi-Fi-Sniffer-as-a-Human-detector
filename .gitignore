@@ -14,3 +14,11 @@ WiFi_Sniffer_Serial_Target/WiFi_Sniffer_Serial_Target.ino.esp8266.esp8266.d1_min
 WiFi_Sniffer_Serial_Target/WiFi_Sniffer_Serial_Target.ino.esp8266.esp8266.d1_mini.elf
 
 *.csv
+
+*.listener
+
+alejandro_test_capture_0.step
+
+uploadscripts.sh.save
+
+.~lock.alejandro2bkp.csv#

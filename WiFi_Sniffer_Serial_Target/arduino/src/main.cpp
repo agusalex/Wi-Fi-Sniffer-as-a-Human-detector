@@ -14,6 +14,7 @@ extern "C"
   #include "user_interface.h"
 }
 #define TARGET "00:0a:f5:d0:3f:18"
+#define TARGETMODE true
 //"XX:XX:XX:00:0a:XX"
 // According to the SDK documentation, the packet type can be inferred from the
 // size of the buffer. We are ignoring this information and parsing the type-subtype
@@ -64,24 +65,26 @@ void wifi_sniffer_packet_handler(uint8_t *buff, uint16_t len)
   mac2str(hdr->addr1, addr1);
   mac2str(hdr->addr2, addr2);
   mac2str(hdr->addr3, addr3);
-  if(!isTarget(addr1,addr2,addr3)){
-   // Serial.println("Not target:"+String(addr2));
-     Serial.printf("\nB %s , %s , %s ,%02d , %-28s E",    
-    addr1,
-    addr2,
-    addr3,
-    wifi_get_channel(),
-      ppkt->rx_ctrl.rssi,
-      wifi_pkt_type2str((wifi_promiscuous_pkt_type_t)frame_ctrl->type, (wifi_mgmt_subtypes_t)frame_ctrl->subtype)
-  );
-    return;
+  if(TARGETMODE){
+      if(isTarget(addr1,addr2,addr3)){
+              Serial.printf("\nB %02d , %-28s E",
+          ppkt->rx_ctrl.rssi,
+          wifi_pkt_type2str((wifi_promiscuous_pkt_type_t)frame_ctrl->type, (wifi_mgmt_subtypes_t)frame_ctrl->subtype)
+      );
+        return;
+      }
   }
-
- 
-  Serial.printf("\nB %02d , %-28s E",
-      ppkt->rx_ctrl.rssi,
-      wifi_pkt_type2str((wifi_promiscuous_pkt_type_t)frame_ctrl->type, (wifi_mgmt_subtypes_t)frame_ctrl->subtype)
-  );
+  else{
+       // Serial.println("Not target:"+String(addr2));
+         Serial.printf("\nB %s , %s , %s ,%02d , %-28s E",
+        addr1,
+        addr2,
+        addr3,
+        wifi_get_channel(),
+          ppkt->rx_ctrl.rssi,
+          wifi_pkt_type2str((wifi_promiscuous_pkt_type_t)frame_ctrl->type, (wifi_mgmt_subtypes_t)frame_ctrl->subtype)
+      );
+  }
 
   // Output info to serial
   /*Serial.printf("\n%s | %s | %s | %u | %02d | %u | %u(%-2u) | %-28s | %u | %u | %u | %u | %u | %u | %u | %u | ",
@@ -129,7 +132,7 @@ void setup()
   Serial.begin(115200);
   Serial.println("Staring Sniffer");
   delay(10);
-  wifi_set_channel(1);
+  wifi_set_channel(6);
 
   // Wifi setup
   wifi_set_opmode(STATION_MODE);

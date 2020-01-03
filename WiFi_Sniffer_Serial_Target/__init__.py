@@ -1,11 +1,11 @@
-from src.Device import Device
-from src.Capture import Capture
+from src.model.Capture import Capture
+from src.model.Device import Device
 from datetime import datetime
 import json
 
 
 def create_capture_from_json():
-    with open('../config.json', 'r') as f:
+    with open('config.json', 'r') as f:
         config = json.load(f)
         print(config)
         name = config['name']

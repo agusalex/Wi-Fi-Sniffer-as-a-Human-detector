@@ -1,5 +1,5 @@
-from src.Step import Step
-import csv, operator
+from src.model.Step import Step
+import csv
 
 
 class Capture:
