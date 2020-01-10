@@ -44,7 +44,8 @@ class Listener:
             csv_writer = csv.writer(new_file)
 
             line_count = 0
-            while (self.captured < self.sample_size):
+            self.ser.flushInput()  # <------------ lo que agregué
+            while self.captured < self.sample_size:
                 # Strip whitespace on the left and right side
                 # of the line
                 line = self.ser.readline().strip()
