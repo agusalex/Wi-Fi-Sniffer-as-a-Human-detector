@@ -1,0 +1,11 @@
+{
+  "name": "10-1-test0",
+  "baudrate": 115200,
+  "sample_size": 200,
+  "csv_values": 2,
+  "device_list": [
+    {"port": "/dev/ttyUSB0"},
+    {"port": "/dev/ttyUSB1"},
+    {"port": "/dev/ttyUSB2"}
+  ]
+}
