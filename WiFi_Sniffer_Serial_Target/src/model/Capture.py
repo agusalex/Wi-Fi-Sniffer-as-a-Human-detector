@@ -1,6 +1,8 @@
 from src.model.Step import Step
-import csv
 
+import csv
+import sys
+from termios import tcflush, TCIFLUSH
 
 class Capture:
 
@@ -18,8 +20,9 @@ class Capture:
             step = Step(step_n, value, self.u_name + "_" + str(step_n), self.sample_size, self.csv_values,
                         self.device_list)
             self.step_list.append(step)
-            step.start()
+            step.start('p')
             print()
+            tcflush(sys.stdin, TCIFLUSH)
             new_step = input("New step? (Y/N):")
             if new_step == "Y" or new_step == "y" or new_step == "":
                 step_n = step_n + 1

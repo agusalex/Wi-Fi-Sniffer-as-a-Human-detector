@@ -1,7 +1,7 @@
 from src.model.Listener import Listener
 import csv, operator
 import time
-
+import keyboard
 
 class Step:
 
@@ -16,6 +16,7 @@ class Step:
 
         self.create_listeners()
         self.stop = False
+        self.force_stop = False
 
     def create_listeners(self):
         for i in range(len(self.device_list)):
@@ -25,16 +26,20 @@ class Step:
                 Listener(i + 1, name_i, self.device_list[i].serial, self.sample_size, self.csv_values)
             )
 
-    def start(self):
+    def start(self, force_stop_key):
         for listener in self.listener_list:
             listener.start()
-        while self.some_alive():
-            time.sleep(1)
+        while self.some_alive() and not self.force_stop:
+            if keyboard.is_pressed(force_stop_key):
+                self.force_stop = True
+                print("Finishing step")
+            #time.sleep(1)
         for listener in self.listener_list:
             if listener.is_alive():
                 listener.stop()
         self.merge()
         self.stop = True
+        self.force_stop = False
 
     def some_alive(self):
         alive = False
@@ -48,7 +53,7 @@ class Step:
             alive = alive and listener.is_alive()
         return alive
 
-    def stop(self):
+    def stop_listeners(self):
         for listener in self.listener_list:
             listener.stop()
         self.stop = True
@@ -69,6 +74,6 @@ class Step:
 
             for row in sorted_list:
                 row2 = [self.i, self.value]
-                for i in range(self.csv_values+2):
+                for i in range(self.csv_values + 2):
                     row2.append(row[i])
                 step_writer.writerow(row2)

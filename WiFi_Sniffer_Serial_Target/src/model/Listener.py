@@ -11,7 +11,7 @@ class Listener:
     sample_size = 0
     captured = 0
     pbar = None
-    stop = False
+    is_stopped = False
 
     def __init__(self, i: int, filename: str, ser: Serial, sample: int, csv_values: int):
         self.filename = "../" + filename + ".listener"
@@ -32,7 +32,7 @@ class Listener:
         return self.thread.is_alive()
 
     def stop(self):
-        self.stop = True
+        self.is_stopped = True
         self.thread.join()
         self.ser.close()
         self.pbar.close()
@@ -44,8 +44,11 @@ class Listener:
             csv_writer = csv.writer(new_file)
 
             line_count = 0
-            self.ser.flushInput()  # <------------ lo que agregué
-            while self.captured < self.sample_size:
+            if not self.ser.is_open:
+                self.ser.open()
+            self.ser.flushInput()
+
+            while self.captured < self.sample_size and not self.is_stopped:
                 # Strip whitespace on the left and right side
                 # of the line
                 line = self.ser.readline().strip()
